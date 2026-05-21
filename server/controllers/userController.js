@@ -4,9 +4,10 @@ const Task = require('../models/Task');
 const ApiError = require('../utils/ApiError');
 const ApiResponse = require('../utils/ApiResponse');
 
-// ─── Get All Users (Admin only) ────────────────────────────────────────────────
+// ─── Get All Users (any authenticated user) ────────────────────────────────────
 const getAllUsers = async (req, res) => {
   const { search, role, page = 1, limit = 20 } = req.query;
+  const isAdmin = req.user.role === 'admin';
 
   const query = { isActive: true };
   if (search) query.$or = [
@@ -21,10 +22,22 @@ const getAllUsers = async (req, res) => {
     User.countDocuments(query),
   ]);
 
-  const usersWithAvatars = users.map((u) => ({
-    ...u.toJSON(),
-    avatar: u.getAvatarUrl(),
-  }));
+  const usersWithAvatars = users.map((u) => {
+    const base = {
+      _id: u._id,
+      name: u.name,
+      email: u.email,
+      role: u.role,
+      avatar: u.getAvatarUrl(),
+    };
+    // Admins also get management-relevant fields
+    if (isAdmin) {
+      base.lastLogin = u.lastLogin;
+      base.createdAt = u.createdAt;
+      base.isActive = u.isActive;
+    }
+    return base;
+  });
 
   return ApiResponse.paginated(res, usersWithAvatars, {
     page: parseInt(page),
@@ -33,6 +46,7 @@ const getAllUsers = async (req, res) => {
     pages: Math.ceil(total / parseInt(limit)),
   });
 };
+
 
 // ─── Get User by ID ────────────────────────────────────────────────────────────
 const getUserById = async (req, res, next) => {

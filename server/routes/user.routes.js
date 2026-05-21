@@ -8,7 +8,9 @@ const { requireAdmin } = require('../middleware/role.middleware');
 // All user routes require authentication
 router.use(verifyToken);
 
-router.get('/', requireAdmin, getAllUsers);
+// GET / — any authenticated user can list teammates (members need it for Team page)
+router.get('/', getAllUsers);
+
 router.get('/:id', getUserById);
 router.put('/:id/role', requireAdmin, updateUserRole);
 router.put('/:id/deactivate', requireAdmin, deactivateUser);

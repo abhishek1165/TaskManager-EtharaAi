@@ -3,13 +3,28 @@ import { useDispatch, useSelector } from 'react-redux';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Camera, Save, Lock } from 'lucide-react';
+import { Camera, Save, Lock, Eye, EyeOff, Check, X } from 'lucide-react';
 import { updateUserProfile } from '../redux/slices/authSlice';
 import Button from '../components/ui/Button';
 import { Input, Textarea } from '../components/ui/FormFields';
 import { addToast } from '../redux/slices/uiSlice';
 import { authService } from '../services/auth.service';
 import { getInitials } from '../utils/cn';
+
+// ─── Password strength helpers (same as SignupPage) ──────────────────────────────
+const passwordRules = [
+  { id: 'length',  label: 'At least 8 characters',        test: (p) => p.length >= 8 },
+  { id: 'upper',   label: 'One uppercase letter (A–Z)',    test: (p) => /[A-Z]/.test(p) },
+  { id: 'number',  label: 'One number (0–9)',              test: (p) => /[0-9]/.test(p) },
+  { id: 'special', label: 'One special character (!@#…)', test: (p) => /[^A-Za-z0-9]/.test(p) },
+];
+function getStrength(p) {
+  const s = passwordRules.filter((r) => r.test(p)).length;
+  if (s <= 1) return { score: s, label: 'Weak',   color: 'bg-red-500' };
+  if (s === 2) return { score: s, label: 'Fair',   color: 'bg-orange-400' };
+  if (s === 3) return { score: s, label: 'Good',   color: 'bg-yellow-400' };
+  return            { score: s, label: 'Strong',  color: 'bg-green-500' };
+}
 
 const profileSchema = z.object({
   name: z.string().min(2, 'Min 2 characters').max(50),
@@ -18,7 +33,12 @@ const profileSchema = z.object({
 
 const passwordSchema = z.object({
   currentPassword: z.string().min(1, 'Required'),
-  newPassword: z.string().min(6, 'Min 6 characters'),
+  newPassword: z
+    .string()
+    .min(8, 'Password must be at least 8 characters')
+    .regex(/[A-Z]/, 'Must contain at least one uppercase letter')
+    .regex(/[0-9]/, 'Must contain at least one number')
+    .regex(/[^A-Za-z0-9]/, 'Must contain at least one special character'),
   confirmPassword: z.string(),
 }).refine((d) => d.newPassword === d.confirmPassword, {
   message: "Passwords don't match",
@@ -33,6 +53,10 @@ export default function ProfilePage() {
   const [avatarFile, setAvatarFile] = useState(null);
   const [profileLoading, setProfileLoading] = useState(false);
   const [passwordLoading, setPasswordLoading] = useState(false);
+  const [showCurrent, setShowCurrent] = useState(false);
+  const [showNew, setShowNew] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [newPasswordValue, setNewPasswordValue] = useState('');
 
   const profileForm = useForm({
     resolver: zodResolver(profileSchema),
@@ -72,6 +96,7 @@ export default function ProfilePage() {
       });
       dispatch(addToast({ type: 'success', title: 'Password changed successfully' }));
       passwordForm.reset();
+      setNewPasswordValue('');
     } catch (err) {
       dispatch(addToast({ type: 'error', title: err.response?.data?.message || 'Failed to change password' }));
     } finally {
@@ -79,6 +104,7 @@ export default function ProfilePage() {
     }
   };
 
+  const strength = getStrength(newPasswordValue);
   const avatarSrc = avatarPreview || user?.avatar;
 
   return (
@@ -154,28 +180,85 @@ export default function ProfilePage() {
         </div>
 
         <form onSubmit={passwordForm.handleSubmit(onPasswordSubmit)} id="password-form" className="space-y-4">
-          <Input
-            id="current-password"
-            label="Current password"
-            type="password"
-            error={passwordForm.formState.errors.currentPassword?.message}
-            {...passwordForm.register('currentPassword')}
-          />
-          <Input
-            id="new-password"
-            label="New password"
-            type="password"
-            placeholder="Min 6 characters"
-            error={passwordForm.formState.errors.newPassword?.message}
-            {...passwordForm.register('newPassword')}
-          />
-          <Input
-            id="confirm-new-password"
-            label="Confirm new password"
-            type="password"
-            error={passwordForm.formState.errors.confirmPassword?.message}
-            {...passwordForm.register('confirmPassword')}
-          />
+          {/* Current password */}
+          <div className="space-y-1.5">
+            <label className="block text-sm font-medium text-foreground">Current password</label>
+            <div className="relative">
+              <input
+                id="current-password"
+                type={showCurrent ? 'text' : 'password'}
+                className={`w-full px-3 py-2.5 pr-10 text-sm rounded-lg border bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all ${passwordForm.formState.errors.currentPassword ? 'border-destructive' : 'border-border'}`}
+                {...passwordForm.register('currentPassword')}
+              />
+              <button type="button" onClick={() => setShowCurrent(!showCurrent)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground">
+                {showCurrent ? <EyeOff size={16} /> : <Eye size={16} />}
+              </button>
+            </div>
+            {passwordForm.formState.errors.currentPassword && (
+              <p className="text-xs text-destructive mt-1">{passwordForm.formState.errors.currentPassword.message}</p>
+            )}
+          </div>
+
+          {/* New password with strength meter */}
+          <div className="space-y-1.5">
+            <label className="block text-sm font-medium text-foreground">New password</label>
+            <div className="relative">
+              <input
+                id="new-password"
+                type={showNew ? 'text' : 'password'}
+                placeholder="Min 8 characters"
+                className={`w-full px-3 py-2.5 pr-10 text-sm rounded-lg border bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all ${passwordForm.formState.errors.newPassword ? 'border-destructive' : 'border-border'}`}
+                {...passwordForm.register('newPassword', { onChange: (e) => setNewPasswordValue(e.target.value) })}
+              />
+              <button type="button" onClick={() => setShowNew(!showNew)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground">
+                {showNew ? <EyeOff size={16} /> : <Eye size={16} />}
+              </button>
+            </div>
+            {passwordForm.formState.errors.newPassword && (
+              <p className="text-xs text-destructive mt-1">{passwordForm.formState.errors.newPassword.message}</p>
+            )}
+            {newPasswordValue.length > 0 && (
+              <div className="mt-2 space-y-2">
+                <div className="flex gap-1 items-center">
+                  {[1,2,3,4].map((i) => (
+                    <div key={i} className={`h-1 flex-1 rounded-full transition-all duration-300 ${i <= strength.score ? strength.color : 'bg-border'}`} />
+                  ))}
+                  <span className="text-xs text-muted-foreground ml-1 whitespace-nowrap">{strength.label}</span>
+                </div>
+                <div className="space-y-1">
+                  {passwordRules.map((rule) => {
+                    const ok = rule.test(newPasswordValue);
+                    return (
+                      <div key={rule.id} className={`flex items-center gap-1.5 text-xs transition-colors ${ok ? 'text-green-500' : 'text-muted-foreground'}`}>
+                        {ok ? <Check size={11} /> : <X size={11} />}
+                        {rule.label}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Confirm new password */}
+          <div className="space-y-1.5">
+            <label className="block text-sm font-medium text-foreground">Confirm new password</label>
+            <div className="relative">
+              <input
+                id="confirm-new-password"
+                type={showConfirm ? 'text' : 'password'}
+                placeholder="••••••••"
+                className={`w-full px-3 py-2.5 pr-10 text-sm rounded-lg border bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all ${passwordForm.formState.errors.confirmPassword ? 'border-destructive' : 'border-border'}`}
+                {...passwordForm.register('confirmPassword')}
+              />
+              <button type="button" onClick={() => setShowConfirm(!showConfirm)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground">
+                {showConfirm ? <EyeOff size={16} /> : <Eye size={16} />}
+              </button>
+            </div>
+            {passwordForm.formState.errors.confirmPassword && (
+              <p className="text-xs text-destructive mt-1">{passwordForm.formState.errors.confirmPassword.message}</p>
+            )}
+          </div>
           <div className="flex justify-end">
             <Button type="submit" variant="outline" loading={passwordLoading}>
               Update Password

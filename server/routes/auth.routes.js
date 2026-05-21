@@ -11,7 +11,11 @@ const upload = require('../middleware/upload.middleware');
 const registerValidation = [
   body('name').trim().notEmpty().withMessage('Name is required').isLength({ min: 2, max: 50 }),
   body('email').isEmail().normalizeEmail().withMessage('Valid email is required'),
-  body('password').isLength({ min: 6 }).withMessage('Password must be at least 6 characters'),
+  body('password')
+    .isLength({ min: 8 }).withMessage('Password must be at least 8 characters')
+    .matches(/[A-Z]/).withMessage('Password must contain at least one uppercase letter')
+    .matches(/[0-9]/).withMessage('Password must contain at least one number')
+    .matches(/[^A-Za-z0-9]/).withMessage('Password must contain at least one special character'),
   body('role').optional().isIn(['admin', 'member']).withMessage('Role must be admin or member'),
 ];
 
@@ -22,7 +26,11 @@ const loginValidation = [
 
 const changePasswordValidation = [
   body('currentPassword').notEmpty().withMessage('Current password is required'),
-  body('newPassword').isLength({ min: 6 }).withMessage('New password must be at least 6 characters'),
+  body('newPassword')
+    .isLength({ min: 8 }).withMessage('Password must be at least 8 characters')
+    .matches(/[A-Z]/).withMessage('Password must contain at least one uppercase letter')
+    .matches(/[0-9]/).withMessage('Password must contain at least one number')
+    .matches(/[^A-Za-z0-9]/).withMessage('Password must contain at least one special character'),
 ];
 
 // ─── Routes ────────────────────────────────────────────────────────────────────
