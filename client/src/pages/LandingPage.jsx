@@ -142,7 +142,7 @@ export default function LandingPage() {
             <Zap size={16} className="text-brand-500" />
             <span className="font-semibold text-foreground">TaskFlow</span>
           </div>
-          <p className="text-sm text-muted-foreground">© 2025 TaskFlow. All rights reserved.</p>
+          <p className="text-sm text-muted-foreground">© 2026 TaskFlow. All rights reserved.</p>
         </div>
       </footer>
     </div>
