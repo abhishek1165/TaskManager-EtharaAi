@@ -102,12 +102,8 @@ const updateProfile = async (req, res, next) => {
 
   // Handle avatar upload
   if (req.file) {
-    // Remove old avatar file if it exists
-    if (user.avatar) {
-      const oldPath = path.join(__dirname, '../uploads/avatars', user.avatar);
-      if (fs.existsSync(oldPath)) fs.unlinkSync(oldPath);
-    }
-    user.avatar = req.file.filename;
+    // When using multer-storage-cloudinary, req.file.path contains the secure Cloudinary URL.
+    user.avatar = req.file.path;
   }
 
   await user.save();

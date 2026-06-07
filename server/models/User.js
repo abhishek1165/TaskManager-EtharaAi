@@ -68,6 +68,11 @@ userSchema.methods.comparePassword = async function (candidatePassword) {
 // ─── Instance Method: Get avatar URL ──────────────────────────────────────────
 userSchema.methods.getAvatarUrl = function () {
   if (this.avatar) {
+    // If it's already a full URL (Cloudinary), return it directly
+    if (this.avatar.startsWith('http')) {
+      return this.avatar;
+    }
+    // Fallback for older local files
     return `${process.env.SERVER_URL || ''}/uploads/avatars/${this.avatar}`;
   }
   // Fallback: UI Avatars API
